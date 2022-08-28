@@ -1,16 +1,27 @@
-export const App = () => {
-  return (
-    <div
-      style={{
-        height: '100vh',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        fontSize: 40,
-        color: '#010101'
-      }}
-    >
-      React homework template
-    </div>
-  );
-};
+import { Component } from 'react';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import ImageGallery from './ImageGallery';
+import Searchbar from './Searchbar';
+
+class App extends Component {
+  state = {
+    searchValue: '',
+  };
+
+  formSubmit = searchValue => {
+    this.setState({ searchValue });
+  };
+
+  render() {
+    const { searchValue } = this.state;
+    return (
+      <>
+        <Searchbar onSubmit={this.formSubmit} />
+        <ToastContainer />
+        <ImageGallery searchValue={searchValue} />
+      </>
+    );
+  }
+}
+export default App;
