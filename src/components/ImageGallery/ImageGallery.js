@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import fetchPixabay from 'services/fetchPixabay';
 import ImageGalleryItem from '../ImageGalleryItem';
@@ -15,99 +15,90 @@ const Status = {
   REJECTED: 'rejected',
 };
 
-class ImageGallery extends Component {
-  state = {
-    images: [],
-    page: 1,
-    error: null,
-    showModal: false,
-    imageModal: null,
-    status: Status.IDLE,
-  };
+export default function ImageGallery({ searchValue }) {
+  const [images, setImages] = useState([]);
+  const [page, setPage] = useState(1);
+  const [showModal, setShowModal] = useState(false);
+  const [imageModal, setImageModal] = useState(null);
+  const [status, setStatus] = useState(Status.IDLE);
 
-  componentDidUpdate(prevProps, prevState) {
-    const prevName = prevProps.searchValue;
-    const nextName = this.props.searchValue;
-    const prevPage = prevState.page;
-    const nextPage = this.state.page;
-    if (nextName !== prevName) {
-      this.setState({ images: [], page: 1 });
+  useEffect(() => {
+    if (!searchValue) {
+      return;
+    }
+    setImages([]);
+    setPage(1);
+  }, [searchValue]);
+
+  useEffect(() => {
+    if (!searchValue) {
+      return;
     }
     window.scrollBy({
       top: document.body.clientHeight,
       behavior: 'smooth',
     });
-    if (prevName !== nextName || prevPage !== nextPage) {
-      this.setState({ status: Status.PENDING });
+    setStatus(Status.PENDING);
+    fetchPixabay(searchValue, page)
+      .then(image => {
+        if (image.hits.length) {
+          setImages(prevState => {
+            return [...prevState, ...image.hits];
+          });
+          setStatus(Status.RESOLVED);
+        } else {
+          return Promise.reject(new Error(`Нет картинок ${searchValue}`));
+        }
+      })
+      .catch(error => {
+        toast.error(error.message);
+        setStatus(Status.REJECTED);
+      });
+  }, [searchValue, page]);
 
-      fetchPixabay(nextName, nextPage)
-        .then(image => {
-          if (image.hits.length) {
-            this.setState(prevState => {
-              const { images } = prevState;
-              return {
-                images: [...images, ...image.hits],
-                status: Status.RESOLVED,
-              };
-            });
-          } else {
-            return Promise.reject(new Error(`Нет картинок ${nextName}`));
-          }
-        })
-        .catch(error => {
-          toast.error(error.message);
-          this.setState({ error, status: Status.REJECTED });
-        });
-    }
-  }
-
-  loadMoreClick = () => {
-    this.setState(prevState => {
-      return { page: prevState.page + 1 };
+  useEffect(() => {
+    window.scrollBy({
+      top: document.body.clientHeight,
+      behavior: 'smooth',
     });
+  });
+
+  const loadMoreClick = () => {
+    setPage(prevState => prevState + 1);
   };
 
-  toggleModal = () => {
-    this.setState(prevState => ({
-      showModal: !prevState.showModal,
-    }));
+  const toggleModal = () => {
+    setShowModal(!showModal);
   };
 
-  showModal = event => {
-    const { images } = this.state;
-    this.setState({
-      imageModal: images.find(img => img.webformatURL === event.target.src),
-    });
-    this.toggleModal();
+  const showModalFunk = event => {
+    setImageModal(images.find(img => img.webformatURL === event.target.src));
+    toggleModal();
   };
 
-  render() {
-    const { images, imageModal, showModal, status } = this.state;
-    return (
-      <>
-        <ul className={s.imageGallery}>
-          {images.map(({ id, tags, webformatURL }) => (
-            <ImageGalleryItem
-              key={id}
-              image={webformatURL}
-              name={tags}
-              onClick={this.showModal}
-            />
-          ))}
-        </ul>
-        {status === 'pending' && <Loader />}
-        {status === 'resolved' && <Button onClick={this.loadMoreClick} />}
-        {showModal && (
-          <Modal onClose={this.toggleModal}>
-            <img src={imageModal.largeImageURL} alt={imageModal.tags} />
-          </Modal>
-        )}
-      </>
-    );
-  }
+  return (
+    <>
+      <ul className={s.imageGallery}>
+        {images.map(({ id, tags, webformatURL }) => (
+          <ImageGalleryItem
+            key={id}
+            image={webformatURL}
+            name={tags}
+            onClick={showModalFunk}
+          />
+        ))}
+      </ul>
+      {status === Status.PENDING && <Loader />}
+      {status === Status.RESOLVED && <Button onClick={loadMoreClick} />}
+      {showModal && (
+        <Modal onClose={toggleModal}>
+          <img src={imageModal.largeImageURL} alt={imageModal.tags} />
+        </Modal>
+      )}
+    </>
+  );
 }
 
 ImageGallery.propTypes = {
   searchValue: PropTypes.string,
 };
-export default ImageGallery;
